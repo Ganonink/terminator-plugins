@@ -18,12 +18,13 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
-from gi.repository import GObject
 import random
 import terminatorlib.plugin as plugin
 import getpass
 import json
 import os
+import re
+import itertools
 
 pluginpath = os.path.dirname(os.path.realpath(__file__))
 configpath = (pluginpath + "/cluster_connect_config")
@@ -80,6 +81,7 @@ class ClusterConnect(plugin.Plugin):
             sudousers.sort()
             # Get servers and insert cluster for cluster connect
         servers = self.get_property(cluster, 'server')
+        servers = self.expand_servers(servers)
         servers.sort()
         if len(servers) > 1:
             if 'cluster' not in servers:
@@ -102,7 +104,6 @@ class ClusterConnect(plugin.Plugin):
                 # add submenu for users
                 cluster_sub_users = self.add_submenu(cluster_sub_servers, server)
                 self.create_cluster_sub_servers(server, users, terminal, cluster, cluster_sub_users, sudousers)
-            print "Iterated"
         else:
             # If there is just one server, don't add a server submenu
             cluster_sub_users = self.add_submenu(menu_sub, cluster)
@@ -178,6 +179,7 @@ class ClusterConnect(plugin.Plugin):
 
                     # Create a group, if the terminals should be grouped
             servers = self.get_property(cluster, 'server')
+            servers = self.expand_servers(servers)
             servers.sort()
 
             # Remove cluster from server, there shouldn't be a server named cluster
@@ -311,3 +313,11 @@ class ClusterConnect(plugin.Plugin):
                 command += '\n'
                 terminal.vte.feed_child(command,-1)
 
+    def expand_servers(self, servers):
+        expanded_servers = list()
+        for server in servers:
+            for x in itertools.product(*[ part.split(',') if i%2 else [part]  for i,part in
+                                          enumerate(re.split(r'\{(.*?)\}',server)) ]):
+                one_server = ''.join(x)
+                expanded_servers.append(one_server)
+        return expanded_servers
